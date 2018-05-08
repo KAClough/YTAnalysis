@@ -1,0 +1,14 @@
+#!/bin/sh
+#BSUB -q smp-upsw
+#BSUB -n 8
+#BSUB -R scratch2
+#BSUB -o out3
+#BSUB -W 12:00
+#BSUB -a intelmpi
+#BSUB -R span[ptile='!']
+#BSUB -R same[model]
+#BSUB -R "intel>=3"
+
+module load intel/compiler intel/mpi gcc hdf5/parallel intel/mkl
+
+mpirun python ExtractAtPoint.py

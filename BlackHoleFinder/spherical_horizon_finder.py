@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 yt.enable_parallelism()
 
 # ==============================================================================
-#			Spherical Horizon finder
+#      Spherical Horizon finder
 #
 #  Assumes (Obviously) spherical symmetry !! Gives bad results if not !
 #  Input = Black hole center
@@ -23,16 +23,18 @@ yt.enable_parallelism()
 # ==============================================================================
 
 #Loading dataset
-ds = yt.load('../../*.hdf5')
+loc = '/scratch2/kclough/ASBH/M1.0a0.0NRchk0009*'
+ds = yt.load(loc)
 
+#initial_location
 centerXYZ =  ds[0].domain_right_edge/2
-center = float(centerXYZ[0])
-
+center = 512.0 - 30.0 #float(centerXYZ[0])
+BHcenter = [center, float(centerXYZ[1]), float(centerXYZ[2])]
+max_radius = 10.0
 
 # =================================
 #  INPUT #
 # =================================
-BHcenter = [center,center,center]
 # ================================
 # ================================
 
@@ -47,286 +49,288 @@ BHmassError = []
 Quality = 'quadratic'
 
 for i in ds:
+  start = time.time()
 
-	start = time.time()
+  # find the center of the BH
+  value, location = i.find_min("chi")
+  BHcenter = [float(location[0]), float(location[1]), float(location[2])]
+  print ("New center ", BHcenter)
+  print ("Chi value ", value)
 
-	# Gradients calculated by YT
+  # Gradients calculated by YT
 
-	i.add_gradient_fields(('chombo', u'chi'))
-	i.add_gradient_fields(('chombo', u'h11'))
-	i.add_gradient_fields(('chombo', u'h12'))
-	i.add_gradient_fields(('chombo', u'h13'))
-	i.add_gradient_fields(('chombo', u'h22'))
-	i.add_gradient_fields(('chombo', u'h23'))
-	i.add_gradient_fields(('chombo', u'h33'))
+  i.add_gradient_fields(('chombo', u'chi'))
+  i.add_gradient_fields(('chombo', u'h11'))
+  i.add_gradient_fields(('chombo', u'h12'))
+  i.add_gradient_fields(('chombo', u'h13'))
+  i.add_gradient_fields(('chombo', u'h22'))
+  i.add_gradient_fields(('chombo', u'h23'))
+  i.add_gradient_fields(('chombo', u'h33'))
 
 
 # ========================================================
-#	Definitions
+#  Definitions
 # ========================================================
 
 
-	print ("Preparing calculation ... ")
+  print ("Preparing calculation ... ")
 
-	c = i.ray((BHcenter[0],BHcenter[1],BHcenter[2]),(BHcenter[0]*2,BHcenter[1],BHcenter[2]))
-	BHcenterYT = i.arr(BHcenter, "code_length")
+  c = i.ray((BHcenter[0],BHcenter[1],BHcenter[2]),(BHcenter[0],BHcenter[1]+max_radius,BHcenter[2]))
+  BHcenterYT = i.arr(BHcenter, "code_length")
 
-	# Yt gives data unsorted
+  # Yt gives data unsorted
 
-	x = np.array(c["x"]- BHcenterYT[0])
-	y = np.array(c["y"]- BHcenterYT[1])
-	z = np.array(c["z"]- BHcenterYT[2])
+  x = np.array(c["x"]- BHcenterYT[0])
+  y = np.array(c["y"]- BHcenterYT[1])
+  z = np.array(c["z"]- BHcenterYT[2])
 
-	r = np.sqrt(x*x+y*y+z*z)
-	srt = np.argsort(r)
+  r = np.sqrt(x*x+y*y+z*z)
+  srt = np.argsort(r)
 
-	# Importing Coordinates
+  # Importing Coordinates
 
-	x = np.array(c["x"][srt]- BHcenterYT[0])
-	y = np.array(c["y"][srt]- BHcenterYT[1])
-	z = np.array(c["z"][srt]- BHcenterYT[2])
+  x = np.array(c["x"][srt]- BHcenterYT[0])
+  y = np.array(c["y"][srt]- BHcenterYT[1])
+  z = np.array(c["z"][srt]- BHcenterYT[2])
 
-	pos = []
+  pos = []
 
-	pos.append(x)
-	pos.append(y)
-	pos.append(z)
+  pos.append(x)
+  pos.append(y)
+  pos.append(z)
 
-	rho2 = x*x + y*y
-	rho = np.sqrt(rho2)
+  rho2 = x*x + y*y
+  rho = np.sqrt(rho2)
 
-	r2 = rho2 + z*z
-	r = np.sqrt(r2)
+  r2 = rho2 + z*z
+  r = np.sqrt(r2)
 
-	cosphi = x/rho
-	sinphi = y/rho
-	sintheta = rho/r
-	costheta = z/r
+  cosphi = x/(rho+1e-100)
+  sinphi = y/(rho+1e-100)
+  sintheta = rho/(r+1e-100)
+  costheta = z/(r+1e-100)
 
-	chi = np.array(c["chi"][srt]);
-	chi2 = chi*chi
-
-
-	g11 = np.array(c["h11"][srt]);
-	g12 = np.array(c["h12"][srt]);
-	g13 = np.array(c["h13"][srt]);
-	g22 = np.array(c["h22"][srt]);
-	g23 = np.array(c["h23"][srt]);
-	g33 = np.array(c["h33"][srt]);
+  chi = np.array(c["chi"][srt]);
+  chi2 = chi*chi
 
 
-	g = [[],[],[]]
-	gu = [[],[],[]]
+  g11 = np.array(c["h11"][srt]);
+  g12 = np.array(c["h12"][srt]);
+  g13 = np.array(c["h13"][srt]);
+  g22 = np.array(c["h22"][srt]);
+  g23 = np.array(c["h23"][srt]);
+  g33 = np.array(c["h33"][srt]);
 
-	g[0].append(g11)
-	g[0].append(g12)
-	g[0].append(g13)
-	g[1].append(g12)
-	g[1].append(g22)
-	g[1].append(g23)
-	g[2].append(g13)
-	g[2].append(g23)
-	g[2].append(g33)
 
-	g = np.array(g)
+  g = [[],[],[]]
+  gu = [[],[],[]]
 
-#	Omega = c["omega"][srt]
+  g[0].append(g11)
+  g[0].append(g12)
+  g[0].append(g13)
+  g[1].append(g12)
+  g[1].append(g22)
+  g[1].append(g23)
+  g[2].append(g13)
+  g[2].append(g23)
+  g[2].append(g33)
 
-	Kscalar = c["K"][srt]
-	Kscalar = np.array(Kscalar)
+  g = np.array(g)
 
-	A11 = np.array(c["A11"][srt]);
-	A12 = np.array(c["A12"][srt]);
-	A13 = np.array(c["A13"][srt]);
-	A22 = np.array(c["A22"][srt]);
-	A23 = np.array(c["A23"][srt]);
-	A33 = np.array(c["A33"][srt]);
+#  Omega = c["omega"][srt]
 
-	A = [[],[],[]]
+  Kscalar = c["K"][srt]
+  Kscalar = np.array(Kscalar)
 
-	A[0].append(A11)
-	A[0].append(A12)
-	A[0].append(A13)
-	A[1].append(A12)
-	A[1].append(A22)
-	A[1].append(A23)
-	A[2].append(A13)
-	A[2].append(A23)
-	A[2].append(A33)
+  A11 = np.array(c["A11"][srt]);
+  A12 = np.array(c["A12"][srt]);
+  A13 = np.array(c["A13"][srt]);
+  A22 = np.array(c["A22"][srt]);
+  A23 = np.array(c["A23"][srt]);
+  A33 = np.array(c["A33"][srt]);
 
-	A = np.array(A)
+  A = [[],[],[]]
 
-# ========================================================
-#	Define normal vector and invert metric
-# ========================================================
+  A[0].append(A11)
+  A[0].append(A12)
+  A[0].append(A13)
+  A[1].append(A12)
+  A[1].append(A22)
+  A[1].append(A23)
+  A[2].append(A13)
+  A[2].append(A23)
+  A[2].append(A33)
 
-	N = len(chi)
-	gu = np.zeros([3,3,N])
-	dsdx = np.zeros([3,3,N])
-	s = np.zeros([3,N])
-
-	for IND in range(N):
-		# Definitions
-		# ---------------------
-		s[0,IND] = x[IND]/r[IND]
-		s[1,IND] = y[IND]/r[IND]
-		s[2,IND] = z[IND]/r[IND]
-		dsdx[0,0,IND] = y[IND]*y[IND]/(pow(r[IND],3)) + z[IND]*z[IND]/(pow(r[IND],3))
-		dsdx[1,1,IND] = x[IND]*x[IND]/(pow(r[IND],3)) + z[IND]*z[IND]/(pow(r[IND],3))
-		dsdx[2,2,IND] = x[IND]*x[IND]/(pow(r[IND],3)) + y[IND]*y[IND]/(pow(r[IND],3))
-		dsdx[0,1,IND] = -s[0,IND]*s[1,IND]/r[IND]
-		dsdx[1,0,IND] = dsdx[0,1,IND]
-		dsdx[0,2,IND] = -s[0,IND]*s[2,IND]/r[IND]
-		dsdx[2,0,IND] = dsdx[0,2,IND]
-		dsdx[1,2,IND] = -s[1,IND]*s[2,IND]/r[IND]
-		dsdx[2,1,IND] = dsdx[1,2,IND]
-
-		# Inversion
-		# ---------------------
-		temp = g[:,:,IND]
-		tempINV = inv(temp)
-		gu[:,:,IND] = tempINV
+  A = np.array(A)
 
 # ========================================================
-#	Derivatives
+#  Define normal vector and invert metric
 # ========================================================
 
-	dgdx = np.zeros([3,3,3,N])
-	dchidx = np.zeros([3,N])
+  N = len(chi)
+  gu = np.zeros([3,3,N])
+  dsdx = np.zeros([3,3,N])
+  s = np.zeros([3,N])
 
-	print ("Calculating metric x Gradient ... ")
-	dgdx[0,0,0,:] = c["h11_gradient_x"][srt]
-	dgdx[0,1,0,:] = c["h12_gradient_x"][srt]
-	dgdx[0,2,0,:] = c["h13_gradient_x"][srt]
-	dgdx[1,1,0,:] = c["h22_gradient_x"][srt]
-	dgdx[1,2,0,:] = c["h23_gradient_x"][srt]
-	dgdx[2,2,0,:] = c["h33_gradient_x"][srt]
-	dgdx[1,0,0,:] = dgdx[0,1,0,:]
-	dgdx[2,0,0,:] = dgdx[0,2,0,:]
-	dgdx[2,1,0,:] = dgdx[1,2,0,:]
+  for IND in range(N):
+    # Definitions
+    # ---------------------
+    s[0,IND] = x[IND]/r[IND]
+    s[1,IND] = y[IND]/r[IND]
+    s[2,IND] = z[IND]/r[IND]
+    dsdx[0,0,IND] = y[IND]*y[IND]/(pow(r[IND],3)) + z[IND]*z[IND]/(pow(r[IND],3))
+    dsdx[1,1,IND] = x[IND]*x[IND]/(pow(r[IND],3)) + z[IND]*z[IND]/(pow(r[IND],3))
+    dsdx[2,2,IND] = x[IND]*x[IND]/(pow(r[IND],3)) + y[IND]*y[IND]/(pow(r[IND],3))
+    dsdx[0,1,IND] = -s[0,IND]*s[1,IND]/r[IND]
+    dsdx[1,0,IND] = dsdx[0,1,IND]
+    dsdx[0,2,IND] = -s[0,IND]*s[2,IND]/r[IND]
+    dsdx[2,0,IND] = dsdx[0,2,IND]
+    dsdx[1,2,IND] = -s[1,IND]*s[2,IND]/r[IND]
+    dsdx[2,1,IND] = dsdx[1,2,IND]
 
-
-	print ("Calculating metric y Gradient ... ")
-	dgdx[0,0,1,:] = c["h11_gradient_y"][srt]
-	dgdx[0,1,1,:] = c["h12_gradient_y"][srt]
-	dgdx[0,2,1,:] = c["h13_gradient_y"][srt]
-	dgdx[1,1,1,:] = c["h22_gradient_y"][srt]
-	dgdx[1,2,1,:] = c["h23_gradient_y"][srt]
-	dgdx[2,2,1,:] = c["h33_gradient_y"][srt]
-	dgdx[1,0,1,:] = dgdx[0,1,1,:]
-	dgdx[2,0,1,:] = dgdx[0,2,1,:]
-	dgdx[2,1,1,:] = dgdx[1,2,1,:]
-
-
-	print ("Calculating metric z Gradient ... ")
-	dgdx[0,0,2,:] = c["h11_gradient_z"][srt]
-	dgdx[0,1,2,:] = c["h12_gradient_z"][srt]
-	dgdx[0,2,2,:] = c["h13_gradient_z"][srt]
-	dgdx[1,1,2,:] = c["h22_gradient_z"][srt]
-	dgdx[1,2,2,:] = c["h23_gradient_z"][srt]
-	dgdx[2,2,2,:] = c["h33_gradient_z"][srt]
-	dgdx[1,0,2,:] = dgdx[0,1,2,:]
-	dgdx[2,0,2,:] = dgdx[0,2,2,:]
-	dgdx[2,1,2,:] = dgdx[1,2,2,:]
-
-
-	print ("Calculating chi Gradient ... ")
-	dchidx[0,:] = c["chi_gradient_x"][srt]
-	dchidx[1,:] = c["chi_gradient_y"][srt]
-	dchidx[2,:] = c["chi_gradient_z"][srt]
+    # Inversion
+    # ---------------------
+    temp = g[:,:,IND]
+    tempINV = inv(temp)
+    gu[:,:,IND] = tempINV
 
 # ========================================================
-#	Calculation of Omega
-#	Eq. 7.41 in shapiro book
+#  Derivatives
+# ========================================================
+
+  dgdx = np.zeros([3,3,3,N])
+  dchidx = np.zeros([3,N])
+
+  print ("Calculating metric x Gradient ... ")
+  dgdx[0,0,0,:] = c["h11_gradient_x"][srt]
+  dgdx[0,1,0,:] = c["h12_gradient_x"][srt]
+  dgdx[0,2,0,:] = c["h13_gradient_x"][srt]
+  dgdx[1,1,0,:] = c["h22_gradient_x"][srt]
+  dgdx[1,2,0,:] = c["h23_gradient_x"][srt]
+  dgdx[2,2,0,:] = c["h33_gradient_x"][srt]
+  dgdx[1,0,0,:] = dgdx[0,1,0,:]
+  dgdx[2,0,0,:] = dgdx[0,2,0,:]
+  dgdx[2,1,0,:] = dgdx[1,2,0,:]
+
+
+  print ("Calculating metric y Gradient ... ")
+  dgdx[0,0,1,:] = c["h11_gradient_y"][srt]
+  dgdx[0,1,1,:] = c["h12_gradient_y"][srt]
+  dgdx[0,2,1,:] = c["h13_gradient_y"][srt]
+  dgdx[1,1,1,:] = c["h22_gradient_y"][srt]
+  dgdx[1,2,1,:] = c["h23_gradient_y"][srt]
+  dgdx[2,2,1,:] = c["h33_gradient_y"][srt]
+  dgdx[1,0,1,:] = dgdx[0,1,1,:]
+  dgdx[2,0,1,:] = dgdx[0,2,1,:]
+  dgdx[2,1,1,:] = dgdx[1,2,1,:]
+
+
+  print ("Calculating metric z Gradient ... ")
+  dgdx[0,0,2,:] = c["h11_gradient_z"][srt]
+  dgdx[0,1,2,:] = c["h12_gradient_z"][srt]
+  dgdx[0,2,2,:] = c["h13_gradient_z"][srt]
+  dgdx[1,1,2,:] = c["h22_gradient_z"][srt]
+  dgdx[1,2,2,:] = c["h23_gradient_z"][srt]
+  dgdx[2,2,2,:] = c["h33_gradient_z"][srt]
+  dgdx[1,0,2,:] = dgdx[0,1,2,:]
+  dgdx[2,0,2,:] = dgdx[0,2,2,:]
+  dgdx[2,1,2,:] = dgdx[1,2,2,:]
+
+
+  print ("Calculating chi Gradient ... ")
+  dchidx[0,:] = c["chi_gradient_x"][srt]
+  dchidx[1,:] = c["chi_gradient_y"][srt]
+  dchidx[2,:] = c["chi_gradient_z"][srt]
+
+# ========================================================
+#  Calculation of Omega
+#  Eq. 7.41 in shapiro book
 # ========================================================
 
 
-	print ("Calculating Theta ... ")
-	E = np.zeros(N)
-	B = np.zeros(N)
-	C = np.zeros(N)
-	D = np.zeros(N)
-	Theta = np.zeros(N)
+  print ("Calculating Theta ... ")
+  E = np.zeros(N)
+  B = np.zeros(N)
+  C = np.zeros(N)
+  D = np.zeros(N)
+  Theta = np.zeros(N)
 
-	for d in range(3):
-		for j in range(3):
-			for k in range(3):
-				for l in range(3):
-					E += - chi*chi*gu[d,k]*s[k]*gu[j,l]*s[l]*dsdx[j,d] - 0.5*chi*gu[d,j]*s[j]*(gu[k,l]*dchidx[d])*s[k]*s[l];
-					for n in range(3):
-						for m in range(3):
-							E += 0.5*chi*gu[d,j]*s[j]*chi*gu[k,m]*gu[l,n]*dgdx[m,n,d]*s[k]*s[l];
+  for d in range(3):
+    for j in range(3):
+      for k in range(3):
+        for l in range(3):
+          E += - chi*chi*gu[d,k]*s[k]*gu[j,l]*s[l]*dsdx[j,d] - 0.5*chi*gu[d,j]*s[j]*(gu[k,l]*dchidx[d])*s[k]*s[l];
+          for n in range(3):
+            for m in range(3):
+              E += 0.5*chi*gu[d,j]*s[j]*chi*gu[k,m]*gu[l,n]*dgdx[m,n,d]*s[k]*s[l];
 
-	for d in range(3):
-		for j in range(3):
-			B += chi*gu[d,j]*dsdx[j,d] - 3.0/2.0*dchidx[d]*gu[d,j]*s[j] + gu[d,j]*dchidx[d]*s[j];
-			for k in range(3):
-				for l in range(3):
-					B += - chi*gu[d,k]*gu[j,l]*dgdx[k,l,d]*s[j];
+  for d in range(3):
+    for j in range(3):
+      B += chi*gu[d,j]*dsdx[j,d] - 3.0/2.0*dchidx[d]*gu[d,j]*s[j] + gu[d,j]*dchidx[d]*s[j];
+      for k in range(3):
+        for l in range(3):
+          B += - chi*gu[d,k]*gu[j,l]*dgdx[k,l,d]*s[j];
 
 
 
-	for d in range(3):
-		for j in range(3):
-			for k in range(3):
-				for l in range(3):
-					C += chi*gu[d,k]*gu[j,l]*(A[k,l]+1.0/(3.0)*Kscalar*g[k,l])*s[d]*s[j];
+  for d in range(3):
+    for j in range(3):
+      for k in range(3):
+        for l in range(3):
+          C += chi*gu[d,k]*gu[j,l]*(A[k,l]+1.0/(3.0)*Kscalar*g[k,l])*s[d]*s[j];
 
-	for d in range(3):
-		for j in range(3):
-			D += chi*gu[d,j]*s[d]*s[j];
+  for d in range(3):
+    for j in range(3):
+      D += chi*gu[d,j]*s[d]*s[j];
 
-	Theta = 1.0/np.sqrt(D)*(E/D + B) + C/D - Kscalar;
+  Theta = 1.0/np.sqrt(D)*(E/D + B) + C/D - Kscalar;
 
 
 
 
 # =====================================================
-#	Finding Horizon
+#  Finding Horizon
 # =====================================================
 
-	AHguess = 0
-	for d in range(N):
-		if Theta[N-1-d]<0:
-			AHguess = N-1-d
-			break
+  AHguess = 0
+  for d in range(N):
+    if Theta[N-1-d]<0:
+      AHguess = N-1-d
+      break
 
-	if AHguess == 0 :
-		AHChecker = False
-	else :
-		AHChecker = True
-		print("Black hole horizon has formed !!")
-		time_data.append(i.current_time)
-
-
-	if (AHChecker):
-		ThetaInterpol = interp1d(r, Theta, kind=Quality)
-                gamma22Interpol = interp1d(x, g[1,1,:], kind=Quality)
-		gamma33Interpol = interp1d(x, g[2,2,:], kind=Quality)
-		chiInterpol = interp1d(x, chi, kind=Quality)
-		# Estimating Error by using local resolution
-		AH_radius_error = abs(r[AHguess]-r[AHguess-1])
-		AHradiusError.append(AH_radius_error)
-		BHradguess = r[AHguess]
-		AHrad = fsolve(ThetaInterpol,BHradguess+AH_radius_error)
-		AHradius.append(AHrad)
-
-                gamma22 = gamma22Interpol(AHrad)
-                gamma33 = gamma33Interpol(AHrad)
-                chi     = chiInterpol(AHrad)
-
-                Mass = 1./(2.*np.sqrt(chi))*(AHrad)*(gamma22*gamma33)**(1./4.)
-                BHmass.append(Mass)
+  if AHguess == 0 :
+    AHChecker = False
+  else :
+    AHChecker = True
+    print("Black hole horizon has formed !!")
+    time_data.append(i.current_time)
 
 
-                MassError = 1./(2.*np.sqrt(chi))*(AH_radius_error)*(gamma22*gamma33)**(1./4.)
-		BHmassError.append(MassError)
+  if (AHChecker):
+    ThetaInterpol = interp1d(r, Theta, kind=Quality)
+    gamma11Interpol = interp1d(y, g[0,0,:], kind=Quality)
+    gamma33Interpol = interp1d(y, g[2,2,:], kind=Quality)
+    chiInterpol = interp1d(y, chi, kind=Quality)
+    # Estimating Error by using local resolution
+    AH_radius_error = abs(r[AHguess]-r[AHguess-1])
+    AHradiusError.append(AH_radius_error)
+    BHradguess = r[AHguess]
+    AHrad = fsolve(ThetaInterpol,BHradguess+AH_radius_error)
+    AHradius.append(AHrad)
+    
+    gamma11 = gamma11Interpol(AHrad)
+    gamma33 = gamma33Interpol(AHrad)
+    chi     = chiInterpol(AHrad)
+    
+    Mass = 1./(2.*np.sqrt(chi))*(AHrad)*(gamma11*gamma33)**(1./4.)
+    BHmass.append(Mass)
+    MassError = 1./(2.*np.sqrt(chi))*(AH_radius_error)*(gamma11*gamma33)**(1./4.)
+    BHmassError.append(MassError)
 
-
-	CycleData.append(time.time()-start)
-	np.savetxt('Cycletime.out',CycleData)
-	np.savetxt('BHmass.out',BHmass)
-	np.savetxt('BHmassError.out',BHmassError)
-	np.savetxt('AH_radius_error.out',AHradiusError)
-	np.savetxt('AH_radius.out',AHradius)
-	np.savetxt('black_hole_formation_time.out',time_data)
+  CycleData.append(time.time()-start)
+  np.savetxt('Cycletime.out',CycleData)
+  np.savetxt('BHmass.out',BHmass)
+  np.savetxt('BHmassError.out',BHmassError)
+  np.savetxt('AH_radius_error.out',AHradiusError)
+  np.savetxt('AH_radius.out',AHradius)
+  np.savetxt('black_hole_formation_time.out',time_data)
