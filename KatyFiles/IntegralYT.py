@@ -4,28 +4,30 @@ from yt import derived_field
 
 yt.enable_parallelism()
 
-@derived_field(name="RhoChi", units="")
-def _RhoChi(field, data) :
-    value = data["rho"] * (data["chi"])**(-1.5)
+@derived_field(name="HamSquared", units="")
+def _HamSquared(field, data) :
+    value = data["Ham"] * data["Ham"]
     return value
 
-loc = '/scratch2/kclough/ASBH/phi0.08M1.0r80plt000000*'
+loc = '/scratch2/kclough/Inflation/Inf9HROldchk0*'
 ds = yt.load(loc)
 
 time_data = []
 integral_data = []
 
 for i in ds :
-    field = 'RhoChi'
+    field = 'HamSquared'
     weight = 'cell_volume'
     ad = i.all_data()
-    ad2 = ad.cut_region('obj["chi"] > 0.1')
+    #ad2 = ad.cut_region('obj["chi"] > 0.1')
 
-    #integral = ad2.quantities.weighted_average_quantity(field, weight)
-    integral = ad2.quantities.total_quantity(field)
+    integral = ad.quantities.weighted_average_quantity(field, weight)
+    #integral = ad2.quantities.total_quantity(field)
+
+    integral = np.sqrt(integral)
 
     time_data.append(i.current_time)
     integral_data.append(integral)
 
-np.savetxt('time.out', time_data)
-np.savetxt('integral.out', integral_data)
+np.savetxt('HamTime_old.out', time_data)
+np.savetxt('AvHam_old.out', integral_data)

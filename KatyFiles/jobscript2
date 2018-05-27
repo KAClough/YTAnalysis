@@ -11,4 +11,4 @@
 
 module load intel/compiler intel/mpi gcc hdf5/parallel intel/mkl
 
-mpirun python IntegralYT.py
+mpirun python ExtractAtPoint.py
