@@ -13,8 +13,8 @@ def _HamSquared(field, data) :
 def _RhoChi(field, data) :
     value = data["rho"] * ( data["chi"]**(-1.5) )
     return value
-filename = 'RhoChiOut.dat'
-loc = '/scratch/shared/pr1ukclo/ASBH/r120M1a0phi0.08HRplt00*'
+filename = 'RhoChiOut_r60HR_1.dat'
+loc = '/scratch2/kclough/ASBH/phi0.08M1.0r60HRplt*'
 ds = yt.load(loc)
 
 from mpi4py import MPI
@@ -36,8 +36,8 @@ for i in ds :
     integral = integral * volume
 
     if(comm.rank==0) :
-        datafile=open(filename,'ab')
-        datafile.write("%f    %f \n" % (i.current_time, integral))
+        datafile=open(filename,'a')
+        datafile.write("%f    %.8f \n" % (i.current_time, integral))
         datafile.close()
 
 #np.savetxt('RhoChi.out', integral_data)

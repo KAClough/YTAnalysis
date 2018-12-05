@@ -23,7 +23,7 @@ yt.enable_parallelism()
 # ==============================================================================
 
 #Loading dataset
-loc = '/scratch2/kclough/ASBH/M1.0a0.0NRchk0009*'
+loc = '/scratch2/kclough/BosonStars/ScalarField_001*'
 ds = yt.load(loc)
 
 #initial_location
