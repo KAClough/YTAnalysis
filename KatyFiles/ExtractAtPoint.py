@@ -24,17 +24,14 @@ var_data = []
 CycleData = []
 
 for i in ds:
-#  start = time.time()
-  print(i.current_time)
+  print("Now at ", i.current_time)
   # find the center of the BH
   #value, location = i.find_min("chi")
   #center = [float(location[0]), float(location[1]), float(location[2])]
   #print ("New center ", center)
   point = i.point(location)
-  var_data.append(point[variable]) 
-  time_data.append(i.current_time)
-#  CycleData.append(time.time()-start)
-
-#np.savetxt('Cycletime.out', CycleData)
-np.savetxt('phi_oldbit.out', var_data)
-np.savetxt('time_oldbit.out', time_data)
+  var_out = point[variable]
+  if(comm.rank==0) :
+    datafile=open(filename,'a')
+    datafile.write("%f    %.8f \n" % (i.current_time, var_out))
+    datafile.close()
